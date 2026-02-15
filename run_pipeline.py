@@ -8,6 +8,7 @@ import argparse
 import logging
 from pathlib import Path
 from datetime import datetime
+import pandas as pd
 
 from config.settings import settings
 from features.main import FeaturePipeline
