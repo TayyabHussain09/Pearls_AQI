@@ -1,0 +1,48 @@
+name: Training Pipeline
+
+on:
+  schedule:
+    # Run weekly for model retraining
+    - cron: '0 0 * * 0'  # Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  training-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -q -r requirements.txt
+      
+      - name: Download latest features
+        uses: actions/download-artifact@v3
+        with:
+          name: features
+          path: data/processed/
+      
+      - name: Run Training Pipeline
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+        run: |
+          python -m models.trainer
+      
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: models
+          path: models/karachi/
+          retention-days: 30
+      
+      - name: Register model to Hopsworks
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+        run: |
+          python scripts/upload_to_hopsworks.py
