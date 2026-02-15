@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -39,6 +39,7 @@ jobs:
       - name: Run Feature Pipeline
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
           AQICN_API_TOKEN: ${{ secrets.AQICN_API_TOKEN }}
           WEATHERAPI_KEY: ${{ secrets.WEATHERAPI_KEY }}
@@ -48,6 +49,13 @@ jobs:
           else
             python -m features.main --mode incremental --hours 24
           fi
+      
+      - name: Upload features to Hopsworks
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+        run: |
+          python scripts/upload_features_to_hopsworks.py
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
