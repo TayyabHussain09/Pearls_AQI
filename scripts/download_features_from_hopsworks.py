@@ -15,10 +15,18 @@ logger = logging.getLogger(__name__)
 def download_features():
     """Download features from Hopsworks Feature Store."""
     
+    # Get project name from environment
+    project_name = os.getenv("HOPSWORKS_PROJECT_NAME", "tayyabhu")
+    api_key = os.getenv("HOPSWORKS_API_KEY")
+    
+    if not api_key:
+        logger.error("HOPSWORKS_API_KEY not found in environment")
+        raise ValueError("HOPSWORKS_API_KEY is required")
+    
     # Connect to Hopsworks
     project = hopsworks.login(
-        project=os.getenv("HOPSWORKS_PROJECT", "tayyabhu"),
-        api_key=os.getenv("HOPSWORKS_API_KEY")
+        project=project_name,
+        api_key=api_key
     )
     
     # Get feature store

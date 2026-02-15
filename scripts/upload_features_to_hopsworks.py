@@ -9,8 +9,12 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.registry.hopsworks_pipeline import HopsworksFeatureStore
+# Import config first to avoid circular imports
 from config.settings import settings
+
+# Now import hopsworks - this will work because config is already loaded
+import hopsworks
+
 
 def main():
     """Upload feature data to Hopsworks."""
@@ -33,11 +37,11 @@ def main():
     
     # Connect to Hopsworks
     print("\nConnecting to Hopsworks...")
-    fs = HopsworksFeatureStore()
-    
-    if not fs.connect():
-        print("Failed to connect to Hopsworks!")
-        return
+    project = hopsworks.login(
+        project=settings.HOPSWORKS_PROJECT_NAME,
+        api_key=settings.HOPSWORKS_API_KEY
+    )
+    fs = project.get_feature_store()
     
     print("Connected to Hopsworks Feature Store")
     
@@ -45,20 +49,30 @@ def main():
     print(f"\nCreating feature group: {settings.FEATURE_GROUP_NAME}...")
     
     try:
-        fg = fs.create_feature_group(
-            df=df,
-            name=settings.FEATURE_GROUP_NAME,
-            version=1,
-            description="Karachi AQI features with weather data and engineered features"
-        )
-        print(f"Successfully uploaded {len(df)} records to Hopsworks!")
+        # Try to get existing feature group first
+        try:
+            fg = fs.get_feature_group(name=settings.FEATURE_GROUP_NAME, version=1)
+            print(f"Feature group already exists. Inserting data...")
+            fg.insert(df, overwrite=False)
+            print(f"Successfully inserted {len(df)} records to Hopsworks!")
+        except:
+            # Create new feature group
+            fg = fs.create_feature_group(
+                name=settings.FEATURE_GROUP_NAME,
+                version=1,
+                description="Karachi AQI features with weather data and engineered features"
+            )
+            fg.insert(df)
+            print(f"Successfully created and uploaded {len(df)} records to Hopsworks!")
+        
         print(f"Feature group: {settings.FEATURE_GROUP_NAME} v1")
     except Exception as e:
         print(f"Error creating feature group: {e}")
     
-    # Disconnect
-    fs.disconnect()
+    # Log out
+    project.close()
     print("\nDone!")
+
 
 if __name__ == "__main__":
     main()
