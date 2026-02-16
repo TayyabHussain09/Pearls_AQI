@@ -56,10 +56,3 @@ jobs:
           HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
         run: |
           python scripts/upload_features_to_hopsworks.py
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: features
-          path: data/processed/
-          retention-days: 7
