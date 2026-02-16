@@ -432,9 +432,11 @@ def tab_eda():
             df = df.sort_values("datetime")
             
             # Prepare time series for decomposition
-            target_col = st.selectbox("Select pollutant for decomposition", 
-                                     [c for c in ["aqi", "pm25", "pm10"] if c in df.columns],
-                                     index=0)
+            target_col = st.selectbox(
+                "Select pollutant for decomposition",
+                [c for c in ["aqi", "pm25", "pm10"] if c in df.columns],
+                index=0
+            )
             
             # Resample to daily if needed for enough data points
             if "datetime" in df.columns:
