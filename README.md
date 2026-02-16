@@ -1,5 +1,7 @@
 # Karachi AQI Prediction System
 
+#Live streamlit app link is : https://pearlsaqi-szrcaeaofb5z6jdbktk9kg.streamlit.app/
+
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.20+-red.svg)
