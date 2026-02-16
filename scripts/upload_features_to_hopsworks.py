@@ -39,7 +39,7 @@ def main():
     print("\nConnecting to Hopsworks...")
     project = hopsworks.login(
         project=settings.HOPSWORKS_PROJECT_NAME,
-        api_key=settings.HOPSWORKS_API_KEY
+        api_key_value=settings.HOPSWORKS_API_KEY
     )
     fs = project.get_feature_store()
     
@@ -67,10 +67,8 @@ def main():
         
         print(f"Feature group: {settings.FEATURE_GROUP_NAME} v1")
     except Exception as e:
-        print(f"Error creating feature group: {e}")
+        print(f"Error with feature group: {e}")
     
-    # Log out
-    project.close()
     print("\nDone!")
 
 

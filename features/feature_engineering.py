@@ -31,7 +31,7 @@ class CyclicalTimeEncoder:
             columns: List of column names to encode
         """
         self.columns = columns or [
-            "hour", "day_of_week", "month", "day_of_year"
+            "hour", "day_of_week", "month", "day_of_year", "week_of_year"
         ]
         self._fitted = False
     
@@ -69,12 +69,16 @@ class CyclicalTimeEncoder:
             
             if col == "hour":
                 df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 24)
-            elif col in ["day_of_week", "day_of_month"]:
+            elif col == "day_of_week":
                 df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 7)
+            elif col == "day_of_month":
+                df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 31)
             elif col == "month":
                 df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 12)
             elif col == "day_of_year":
                 df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 365)
+            elif col == "week_of_year":
+                df[f"{col}_sin"], df[f"{col}_cos"] = self._encode(df[col].values, 52)
         
         self._fitted = True
         return df
@@ -302,7 +306,9 @@ class FeatureEngineer:
         df['day_of_week'] = df[settings.TIME_COLUMN].dt.dayofweek
         df['day_of_month'] = df[settings.TIME_COLUMN].dt.day
         df['month'] = df[settings.TIME_COLUMN].dt.month
-        df['day_of_year'] = df[settings.TIME_COLUMN].dt.dayofweek
+        df['day_of_year'] = df[settings.TIME_COLUMN].dt.dayofyear
+        df['year'] = df[settings.TIME_COLUMN].dt.year
+        df['week_of_year'] = df[settings.TIME_COLUMN].dt.isocalendar().week.astype(int)
         df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
         df['is_rush_hour'] = df['hour'].isin([7, 8, 9, 17, 18, 19]).astype(int)
         
@@ -392,6 +398,199 @@ class FeatureEngineer:
         
         return df
     
+    def add_change_rate_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add change rate (first difference) features for AQI.
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with change rate features
+        """
+        df = df.copy()
+        target_col = settings.TARGET_COLUMN
+        
+        if target_col in df.columns:
+            # Change rate features (first difference)
+            df['aqi_change_1h'] = df[target_col].diff(1)
+            df['aqi_change_24h'] = df[target_col].diff(24)
+            
+            # Trend features (24-hour difference)
+            df['aqi_diff_24h'] = df[target_col].diff(24)
+        
+        return df
+    
+    def add_ema_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add Exponential Moving Average features for AQI.
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with EMA features
+        """
+        df = df.copy()
+        target_col = settings.TARGET_COLUMN
+        
+        if target_col in df.columns:
+            # EMA features with different spans
+            df['aqi_ema_24h'] = df[target_col].ewm(span=24, adjust=False).mean()
+            df['aqi_ema_168h'] = df[target_col].ewm(span=168, adjust=False).mean()  # 7 days
+        
+        return df
+    
+    def add_long_term_rolling_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add long-term rolling features (30 days and 90 days).
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with long-term rolling features
+        """
+        df = df.copy()
+        target_col = settings.TARGET_COLUMN
+        
+        if target_col in df.columns:
+            # 30-day rolling mean (720 hours)
+            df['rolling_mean_720h'] = df[target_col].rolling(
+                window=720, min_periods=1
+            ).mean()
+            
+            # 90-day rolling mean (2160 hours)
+            df['rolling_mean_2160h'] = df[target_col].rolling(
+                window=2160, min_periods=1
+            ).mean()
+        
+        return df
+    
+    def add_holiday_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add Pakistan-specific holiday features.
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with holiday features
+        """
+        df = df.copy()
+        
+        # Ensure datetime column exists
+        if settings.TIME_COLUMN not in df.columns:
+            return df
+        
+        # Parse datetime if needed
+        if df[settings.TIME_COLUMN].dtype == 'object':
+            df[settings.TIME_COLUMN] = pd.to_datetime(df[settings.TIME_COLUMN])
+        
+        # Pakistan-specific holidays (approximate dates)
+        # Eid al-Fitr: varies (around April-May)
+        # Eid al-Adha: varies (around June-July)
+        # Independence Day: August 14
+        # National Day: March 23
+        # Defence Day: September 6
+        # Youm-e-Iqbal: November 9
+        
+        holidays = []
+        
+        # Define holidays for 2024 and 2025
+        for year in [2024, 2025]:
+            # Independence Day
+            holidays.append(pd.Timestamp(f'{year}-08-14'))
+            # National Day (Pakistan Day)
+            holidays.append(pd.Timestamp(f'{year}-03-23'))
+            # Defence Day
+            holidays.append(pd.Timestamp(f'{year}-09-06'))
+            # Youm-e-Iqbal
+            holidays.append(pd.Timestamp(f'{year}-11-09'))
+            # Eid al-Fitr 2024 (approximate)
+            if year == 2024:
+                holidays.append(pd.Timestamp('2024-04-10'))
+                holidays.append(pd.Timestamp('2024-04-11'))
+                holidays.append(pd.Timestamp('2024-04-12'))
+            # Eid al-Fitr 2025
+            if year == 2025:
+                holidays.append(pd.Timestamp('2025-03-30'))
+                holidays.append(pd.Timestamp('2025-03-31'))
+                holidays.append(pd.Timestamp('2025-04-01'))
+            # Eid al-Adha 2024
+            if year == 2024:
+                holidays.append(pd.Timestamp('2024-06-16'))
+                holidays.append(pd.Timestamp('2024-06-17'))
+                holidays.append(pd.Timestamp('2024-06-18'))
+            # Eid al-Adha 2025
+            if year == 2025:
+                holidays.append(pd.Timestamp('2025-06-06'))
+                holidays.append(pd.Timestamp('2025-06-07'))
+                holidays.append(pd.Timestamp('2025-06-08'))
+        
+        # Create holiday indicator
+        holiday_set = set(holidays)
+        df['is_holiday'] = df[settings.TIME_COLUMN].dt.normalize().isin(holiday_set).astype(int)
+        
+        return df
+    
+    def add_pollutant_ratios(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add pollutant ratio features.
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with pollutant ratio features
+        """
+        df = df.copy()
+        
+        # PM2.5 to PM10 ratio
+        if 'pm25' in df.columns and 'pm10' in df.columns:
+            df['pm25_pm10_ratio'] = df['pm25'] / (df['pm10'] + 1e-6)
+        
+        # NO2 to O3 ratio
+        if 'no2' in df.columns and 'o3' in df.columns:
+            df['no2_o3_ratio'] = df['no2'] / (df['o3'] + 1e-6)
+        
+        return df
+    
+    def add_composite_index(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add composite pollution index as weighted combination.
+        
+        Args:
+            df: Input dataframe
+            
+        Returns:
+            Dataframe with composite pollution index
+        """
+        df = df.copy()
+        
+        # Calculate weighted pollution index
+        # PM2.5 is most harmful, then PM10, then NO2, then O3
+        weights = {
+            'pm25': 0.4,
+            'pm10': 0.3,
+            'no2': 0.2,
+            'o3': 0.1
+        }
+        
+        available_weights = {k: v for k, v in weights.items() if k in df.columns}
+        
+        if available_weights:
+            # Normalize weights to sum to 1
+            total_weight = sum(available_weights.values())
+            normalized_weights = {k: v/total_weight for k, v in available_weights.items()}
+            
+            # Calculate composite index
+            df['pollution_index'] = sum(
+                df[col] * weight for col, weight in normalized_weights.items()
+            )
+        
+        return df
+    
     def full_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Run the complete feature engineering pipeline.
@@ -420,11 +619,35 @@ class FeatureEngineer:
         df = self.add_aqi_category(df)
         logger.info("Added AQI categories")
         
-        # Step 5: Add rolling features
+        # Step 5: Add change rate features
+        df = self.add_change_rate_features(df)
+        logger.info("Added change rate features")
+        
+        # Step 6: Add EMA features
+        df = self.add_ema_features(df)
+        logger.info("Added EMA features")
+        
+        # Step 7: Add long-term rolling features
+        df = self.add_long_term_rolling_features(df)
+        logger.info("Added long-term rolling features")
+        
+        # Step 8: Add holiday features
+        df = self.add_holiday_features(df)
+        logger.info("Added holiday features")
+        
+        # Step 9: Add pollutant ratios
+        df = self.add_pollutant_ratios(df)
+        logger.info("Added pollutant ratios")
+        
+        # Step 10: Add composite index
+        df = self.add_composite_index(df)
+        logger.info("Added composite index")
+        
+        # Step 11: Add rolling features
         df = self.rolling_generator.transform(df)
         logger.info("Added rolling features")
         
-        # Step 6: Add lag features
+        # Step 12: Add lag features
         df = self.lag_generator.transform(df)
         logger.info("Added lag features")
         

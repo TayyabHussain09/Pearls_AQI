@@ -48,6 +48,16 @@ except ImportError:
     TF_AVAILABLE = False
     tf = None
 
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    shap = None
+
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for saving plots
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -277,6 +287,17 @@ class ModelFactory:
         with open(self.results_file, "w") as f:
             json.dump(training_results, f, indent=2)
         
+        # Compute SHAP analysis (optional - won't fail if SHAP unavailable)
+        try:
+            shap_results = self.compute_shap_analysis(trained_models, X, feature_cols)
+            if shap_results:
+                training_results["shap_analysis"] = shap_results
+                # Update results file with SHAP info
+                with open(self.results_file, "w") as f:
+                    json.dump(training_results, f, indent=2)
+        except Exception as e:
+            logger.warning(f"SHAP analysis failed (non-blocking): {e}")
+        
         return trained_models, results
     
     def _train_model(self, name: str, model, X: pd.DataFrame, y: pd.Series, tscv):
@@ -332,6 +353,155 @@ class ModelFactory:
         }
         
         return model, result
+    
+    def compute_shap_analysis(
+        self,
+        trained_models: Dict[str, Any],
+        X: pd.DataFrame,
+        feature_cols: list
+    ) -> Dict[str, Any]:
+        """
+        Compute SHAP values and generate feature importance explanations.
+        
+        Args:
+            trained_models: Dictionary of trained model objects
+            X: Feature DataFrame
+            feature_cols: List of feature column names
+            
+        Returns:
+            Dictionary containing SHAP values and feature importance for each model
+        """
+        if not SHAP_AVAILABLE:
+            logger.warning("SHAP not available - skipping SHAP analysis")
+            return {}
+        
+        shap_results = {}
+        shap_dir = self.output_dir / "shap"
+        shap_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Sample data for SHAP analysis (use subset for efficiency)
+        sample_size = min(100, len(X))
+        X_sample = X.sample(n=sample_size, random_state=42)
+        X_sample = X_sample.astype(np.float32)
+        
+        # Tree-based models that work with TreeExplainer
+        tree_models = [
+            "RandomForest",
+            "XGBoost",
+            "LightGBM",
+            "GradientBoosting",
+            "ExtraTrees"
+        ]
+        
+        for name, model in trained_models.items():
+            try:
+                logger.info(f"Computing SHAP analysis for {name}...")
+                
+                model_result = {"model_type": "unknown", "shap_values": None, "feature_importance": {}}
+                
+                # Get the underlying sklearn-compatible model
+                if name == "NeuralNetwork":
+                    # For Neural Network, use KernelExplainer
+                    model_result["model_type"] = "neural_network"
+                    
+                    # Get scaled data for prediction
+                    scaler = joblib.load(self.output_dir / "scaler.pkl")
+                    X_scaled = scaler.transform(X_sample)
+                    
+                    # Use a sample of the data for KernelExplainer
+                    X_background = X_scaled[:min(50, len(X_scaled))]
+                    
+                    # Create prediction function that works with the scaler
+                    def predict_fn(x):
+                        return model.model.predict(x, verbose=0).flatten()
+                    
+                    # Use KernelExplainer for neural network
+                    explainer = shap.KernelExplainer(predict_fn, X_background)
+                    shap_values = explainer.shap_values(X_scaled, nsamples=100)
+                    
+                    model_result["shap_values"] = shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values
+                    
+                    # Calculate feature importance from SHAP values
+                    feature_importance = np.abs(shap_values).mean(axis=0)
+                    model_result["feature_importance"] = dict(zip(feature_cols, feature_importance.tolist()))
+                    
+                elif name in tree_models:
+                    # For tree-based models, use TreeExplainer
+                    model_result["model_type"] = "tree_based"
+                    
+                    # Get the underlying model
+                    if name == "XGBoost":
+                        underlying_model = model
+                    elif name == "LightGBM":
+                        underlying_model = model
+                    else:
+                        underlying_model = model
+                    
+                    explainer = shap.TreeExplainer(underlying_model)
+                    shap_values = explainer.shap_values(X_sample)
+                    
+                    model_result["shap_values"] = shap_values.tolist() if hasattr(shap_values, 'tolist') else shap_values
+                    
+                    # Calculate feature importance from SHAP values
+                    feature_importance = np.abs(shap_values).mean(axis=0)
+                    model_result["feature_importance"] = dict(zip(feature_cols, feature_importance.tolist()))
+                    
+                    # Generate and save SHAP summary plot
+                    try:
+                        import matplotlib.pyplot as plt
+                        plt.figure(figsize=(10, 8))
+                        shap.summary_plot(shap_values, X_sample, feature_names=feature_cols, show=False)
+                        plt.tight_layout()
+                        plt.savefig(shap_dir / f"{name}_shap_summary.png", dpi=150, bbox_inches='tight')
+                        plt.close()
+                        logger.info(f"  Saved SHAP summary plot for {name}")
+                    except Exception as e:
+                        logger.warning(f"  Could not save SHAP plot for {name}: {e}")
+                else:
+                    # Skip non-tree models that don't have good SHAP support
+                    logger.info(f"  Skipping SHAP for {name} (not tree-based or neural network)")
+                    continue
+                
+                shap_results[name] = model_result
+                logger.info(f"  SHAP analysis completed for {name}")
+                
+            except Exception as e:
+                logger.warning(f"  SHAP analysis failed for {name}: {e}")
+                shap_results[name] = {"model_type": "unknown", "error": str(e)}
+        
+        # Generate combined feature importance CSV
+        self._save_feature_importance_csv(shap_results, feature_cols)
+        
+        # Save SHAP results to JSON
+        shap_file = self.output_dir / "shap_results.json"
+        with open(shap_file, 'w') as f:
+            json.dump(shap_results, f, indent=2)
+        logger.info(f"SHAP results saved to {shap_file}")
+        
+        return shap_results
+    
+    def _save_feature_importance_csv(
+        self,
+        shap_results: Dict[str, Any],
+        feature_cols: list
+    ):
+        """Save feature importance values to CSV file."""
+        try:
+            importance_data = []
+            
+            for model_name, result in shap_results.items():
+                if "feature_importance" in result:
+                    row = {"model": model_name}
+                    row.update(result["feature_importance"])
+                    importance_data.append(row)
+            
+            if importance_data:
+                df_importance = pd.DataFrame(importance_data)
+                csv_path = self.output_dir / "feature_importance.csv"
+                df_importance.to_csv(csv_path, index=False)
+                logger.info(f"Feature importance saved to {csv_path}")
+        except Exception as e:
+            logger.warning(f"Could not save feature importance CSV: {e}")
     
     def get_best_model(self):
         """Load the best performing model."""

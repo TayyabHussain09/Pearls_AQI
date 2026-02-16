@@ -50,7 +50,7 @@ class Settings:
     # Hopsworks Configuration
     # ===================================================================
     HOPSWORKS_API_KEY: Optional[str] = os.getenv("HOPSWORKS_API_KEY")
-    HOPSWORKS_PROJECT_NAME: str = os.getenv("HOPSWORKS_PROJECT_NAME", "aqi_predictor")
+    HOPSWORKS_PROJECT_NAME: str = os.getenv("HOPSWORKS_PROJECT_NAME", "tayyabhu")
     HOPSWORKS_HOST: str = os.getenv("HOPSWORKS_HOST", "c.app.hopsworks.ai")
     
     # ===================================================================

@@ -26,7 +26,7 @@ def download_features():
     # Connect to Hopsworks
     project = hopsworks.login(
         project=project_name,
-        api_key=api_key
+        api_key_value=api_key
     )
     
     # Get feature store

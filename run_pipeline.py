@@ -77,7 +77,7 @@ def store_to_hopsworks_features(df):
             # Store to feature store
             fs.create_feature_group(
                 df_store,
-                version=1,
+                version=2,
                 description="Karachi AQI prediction features - weather and pollutant data"
             )
             fs.disconnect()
@@ -197,7 +197,19 @@ def main():
     elif args.mode == "features":
         run_feature_pipeline(args.feature_mode, args.years, args.hours)
     else:
-        run_training_pipeline()
+        # For train mode, optionally store to hopsworks
+        result = run_training_pipeline()
+        if args.hopsworks and result:
+            models, results = result
+            model_path = Path("models/karachi")
+            best_model = results.get('best_model', 'Lasso')
+            best_rmse = results.get('best_rmse', 0)
+            metrics = {
+                'rmse': best_rmse,
+                'mae': results.get('all_results', {}).get(best_model, {}).get('mae_mean', 0),
+                'r2': results.get('all_results', {}).get(best_model, {}).get('r2_mean', 0)
+            }
+            store_to_hopsworks_model(model_path, metrics)
 
 
 if __name__ == "__main__":
