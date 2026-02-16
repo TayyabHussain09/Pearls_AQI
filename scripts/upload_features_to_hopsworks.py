@@ -19,14 +19,17 @@ import hopsworks
 def main():
     """Upload feature data to Hopsworks."""
     
-    # Load the feature data
-    data_file = Path("data/processed/karachi_features_20240216_20260215.csv")
+    # Find the latest feature data file
+    data_dir = Path("data/processed/")
+    csv_files = list(data_dir.glob("karachi_features*.csv"))
     
-    if not data_file.exists():
-        print(f"Error: Data file not found: {data_file}")
-        print("Run feature pipeline first: python features/main.py --mode backfill")
+    if not csv_files:
+        print("Error: No feature data files found in data/processed/")
+        print("Run feature pipeline first: python -m features.main --mode incremental")
         return
     
+    # Use the most recent file
+    data_file = max(csv_files, key=lambda x: x.stat().st_mtime)
     print(f"Loading data from {data_file}...")
     df = pd.read_csv(data_file)
     
@@ -51,21 +54,21 @@ def main():
     try:
         # Try to get existing feature group first
         try:
-            fg = fs.get_feature_group(name=settings.FEATURE_GROUP_NAME, version=1)
-            print(f"Feature group already exists. Inserting data...")
+            fg = fs.get_feature_group(name=settings.FEATURE_GROUP_NAME, version=2)
+            print(f"Feature group v2 already exists. Inserting data...")
             fg.insert(df, overwrite=False)
             print(f"Successfully inserted {len(df)} records to Hopsworks!")
         except:
             # Create new feature group
             fg = fs.create_feature_group(
                 name=settings.FEATURE_GROUP_NAME,
-                version=1,
+                version=2,
                 description="Karachi AQI features with weather data and engineered features"
             )
             fg.insert(df)
             print(f"Successfully created and uploaded {len(df)} records to Hopsworks!")
         
-        print(f"Feature group: {settings.FEATURE_GROUP_NAME} v1")
+        print(f"Feature group: {settings.FEATURE_GROUP_NAME} v2")
     except Exception as e:
         print(f"Error with feature group: {e}")
     

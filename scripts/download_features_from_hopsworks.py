@@ -34,10 +34,28 @@ def download_features():
     
     # Get the feature group
     try:
-        feature_group = fs.get_feature_group(
-            name="karachi_aqi_features",
-            version=2
-        )
+        # Try version 2 first, then version 1
+        try:
+            feature_group = fs.get_feature_group(
+                name="karachi_aqi_features",
+                version=2
+            )
+        except:
+            feature_group = fs.get_feature_group(
+                name="karachi_aqi_features",
+                version=1
+            )
+        
+        # Read all features
+        logger.info("Reading features from feature store...")
+        
+        # Try offline read first
+        try:
+            df = feature_group.read()
+        except Exception as e:
+            logger.warning(f"Offline read failed, trying alternative method: {e}")
+            # Fallback: just get all data without time filter
+            df = feature_group.select_all().read()
         
         # Read latest features (last 30 days)
         end_date = datetime.now()
@@ -47,10 +65,6 @@ def download_features():
         
         # Read features from feature group
         df = feature_group.read()
-        
-        # Filter to last 30 days
-        df['datetime'] = pd.to_datetime(df['datetime'])
-        df = df[df['datetime'] >= start_date]
         
         # Save to local file
         output_path = "data/processed/karachi_features_latest.csv"
