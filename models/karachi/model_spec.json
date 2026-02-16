@@ -1,0 +1,10 @@
+{
+  "model_name": "karachi_aqi_predictor",
+  "metrics": {
+    "rmse": 0,
+    "mae": 0,
+    "r2": 0
+  },
+  "registered_at": "2026-02-16T11:33:27.520963",
+  "description": "Karachi AQI prediction model trained on weather and pollutant features"
+}

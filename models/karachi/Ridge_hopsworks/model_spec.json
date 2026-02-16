@@ -1,0 +1,10 @@
+{
+  "model_name": "Ridge",
+  "metrics": {
+    "rmse": 0.006024729271132767,
+    "rmse_mean": 0.006024729271132767,
+    "r2_mean": 0.9999987959861756
+  },
+  "registered_at": "2026-02-15T20:19:06.624012",
+  "description": "AQI Prediction Model - Ridge"
+}

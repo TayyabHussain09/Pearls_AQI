@@ -59,6 +59,11 @@ data/processed/
 # Models
 models/*/
 !models/.gitkeep
+!models/karachi/
+models/karachi/*.pkl
+models/karachi/*.keras
+models/karachi/*.json
+!models/karachi/.gitkeep
 *.pkl
 *.joblib
 *.keras

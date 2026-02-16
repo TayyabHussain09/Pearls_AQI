@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-02-16T01:19:02.291500",
+  "best_model": "Ridge",
+  "best_rmse": 0.006024729271132767,
+  "best_mae": 0.004849236994050443,
+  "best_r2": 0.9999987959861756,
+  "all_results": {
+    "RandomForest": {
+      "rmse_mean": 0.05964895211253622,
+      "rmse_std": 0.061681649613498764,
+      "mae_mean": 0.0048454425098012855,
+      "r2_mean": 0.9999098077457933,
+      "n_folds": 5
+    },
+    "Ridge": {
+      "rmse_mean": 0.006024729271132767,
+      "rmse_std": 0.0062866777326857975,
+      "mae_mean": 0.004849236994050443,
+      "r2_mean": 0.9999987959861756,
+      "n_folds": 5
+    },
+    "Lasso": {
+      "rmse_mean": 0.0952969270985929,
+      "rmse_std": 0.009952792070171317,
+      "mae_mean": 0.077003513276577,
+      "r2_mean": 0.9998637557029724,
+      "n_folds": 5
+    },
+    "ElasticNet": {
+      "rmse_mean": 0.19150223295214505,
+      "rmse_std": 0.006728077727412008,
+      "mae_mean": 0.1530708611011505,
+      "r2_mean": 0.999439001083374,
+      "n_folds": 5
+    },
+    "GradientBoosting": {
+      "rmse_mean": 0.05912644833245421,
+      "rmse_std": 0.040776614220800735,
+      "mae_mean": 0.009059499430792562,
+      "r2_mean": 0.9999338773911983,
+      "n_folds": 5
+    },
+    "ExtraTrees": {
+      "rmse_mean": 0.046107373459923585,
+      "rmse_std": 0.04371608696700642,
+      "mae_mean": 0.003731422009148539,
+      "r2_mean": 0.9999502782349298,
+      "n_folds": 5
+    },
+    "KNN": {
+      "rmse_mean": 2.5761766774451558,
+      "rmse_std": 0.44421417856326323,
+      "mae_mean": 2.035161775807294,
+      "r2_mean": 0.899752775379258,
+      "n_folds": 5
+    },
+    "AdaBoost": {
+      "rmse_mean": 0.9777987723616256,
+      "rmse_std": 0.05851289571959125,
+      "mae_mean": 0.7944741797119393,
+      "r2_mean": 0.9852712112797848,
+      "n_folds": 5
+    },
+    "XGBoost": {
+      "rmse_mean": 0.08407468581429675,
+      "rmse_std": 0.04194309424493559,
+      "mae_mean": 0.02452350240200758,
+      "r2_mean": 0.999882972240448,
+      "n_folds": 5
+    },
+    "LightGBM": {
+      "rmse_mean": 0.12017280316293281,
+      "rmse_std": 0.06865024256162465,
+      "mae_mean": 0.025856479940467747,
+      "r2_mean": 0.9997494140359422,
+      "n_folds": 5
+    },
+    "NeuralNetwork": {
+      "rmse_mean": Infinity,
+      "rmse_std": 0,
+      "error": "TensorFlow not available"
+    }
+  },
+  "model_path": "models\\karachi\\Ridge.pkl",
+  "hopsworks_registered": false,
+  "hopsworks_version": null
+}

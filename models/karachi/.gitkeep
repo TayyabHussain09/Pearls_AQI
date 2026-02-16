@@ -1,0 +1,2 @@
+# This file ensures the karachi models directory is tracked by git
+# Model files (*.pkl, *.keras, *.json) are now allowed in this directory
