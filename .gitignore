@@ -52,9 +52,11 @@ venv.bak/
 data/raw/
 data/processed/
 !data/.gitkeep
-*.csv
-*.parquet
-*.feather
+!data/processed/.gitkeep
+data/processed/*.csv
+data/processed/*.parquet
+data/processed/*.feather
+!data/processed/latest_features.csv
 
 # Models
 models/*/
