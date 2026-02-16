@@ -36,7 +36,7 @@ def download_features():
     try:
         feature_group = fs.get_feature_group(
             name="karachi_aqi_features",
-            version=1
+            version=2
         )
         
         # Read latest features (last 30 days)
