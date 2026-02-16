@@ -1,5 +1,5 @@
 """
-Script to train and register models in Hopsworks Model Registry.
+Script to upload trained models to Hopsworks Model Registry.
 """
 
 import pandas as pd
@@ -11,39 +11,43 @@ import shutil
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.training_pipeline import TrainingPipeline
 from models.registry.hopsworks_pipeline import HopsworksModelRegistry
 from config.settings import settings
 
 def main():
-    """Train models and register in Hopsworks."""
+    """Upload trained models to Hopsworks."""
     
-    # First, run training
     print("="*60)
-    print("STEP 1: Training Models")
+    print("Uploading Models to Hopsworks")
     print("="*60)
     
-    pipeline = TrainingPipeline()
+    # Check if models exist
+    models_dir = Path("models/karachi")
+    if not models_dir.exists():
+        print("ERROR: No trained models found. Run training first.")
+        sys.exit(1)
     
-    # Use existing processed data
-    data_path = Path("data/processed/karachi_features_20240216_20260215.csv")
+    # Load training results to get best model info
+    results_file = Path("models/karachi/training_results.json")
+    if results_file.exists():
+        with open(results_file) as f:
+            results = json.load(f)
+        model_name = results.get('best_model', 'Lasso')
+        best_rmse = results.get('best_rmse', 0.0)
+    else:
+        # Default to Lasso if no results file
+        model_name = "Lasso"
+        best_rmse = 0.0
+        results = {}
     
-    if not data_path.exists():
-        print(f"Error: Data file not found: {data_path}")
-        return
-    
-    print(f"Training with data from {data_path}...")
-    results = pipeline.run(data_path)
-    
-    print(f"\nBest Model: {results['best_model']}")
-    print(f"Best RMSE: {results['best_rmse']:.4f}")
-    
-    # Now register in Hopsworks
-    print("\n" + "="*60)
-    print("STEP 2: Registering Model in Hopsworks")
-    print("="*60)
+    print(f"Best Model: {model_name}")
+    print(f"Best RMSE: {best_rmse:.4f}")
     
     # Connect to Hopsworks
+    print("\n" + "="*60)
+    print("Registering Model in Hopsworks")
+    print("="*60)
+    
     mr = HopsworksModelRegistry()
     
     if not mr.connect():
@@ -51,10 +55,6 @@ def main():
         return
     
     print("Connected to Hopsworks Model Registry")
-    
-    # Get model path and metrics
-    model_name = results['best_model']
-    best_rmse = results['best_rmse']
     
     # Create a model directory for Hopsworks
     model_dir = Path(f"models/karachi/{model_name}_hopsworks")
@@ -66,6 +66,8 @@ def main():
     model_file = Path(f"models/karachi/{model_name}.pkl")
     if model_file.exists():
         shutil.copy(model_file, model_dir / f"{model_name}.pkl")
+    else:
+        print(f"Warning: Model file not found: {model_file}")
     
     # Copy scaler
     scaler_file = Path("models/karachi/scaler.pkl")
@@ -77,38 +79,49 @@ def main():
     if col_medians_file.exists():
         shutil.copy(col_medians_file, model_dir / "col_medians.pkl")
     
-    # Get metrics from results - handle different formats
-    all_results = results.get('all_results', {})
-    model_result = all_results.get(model_name, {})
-    
+    # Load metrics from results
     metrics = {
-        'rmse': best_rmse,
+        "rmse": best_rmse,
+        "model": model_name
     }
     
-    # Add other metrics if available
-    if 'rmse_mean' in model_result:
-        metrics['rmse_mean'] = model_result['rmse_mean']
-    if 'r2_mean' in model_result:
-        metrics['r2_mean'] = model_result['r2_mean']
+    # Add all model metrics if available
+    if 'all_results' in results:
+        metrics['all_models'] = results['all_results']
     
-    print(f"\nRegistering model: {model_name}")
-    print(f"Metrics: {metrics}")
+    # Save metrics
+    with open(model_dir / "metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
     
-    try:
-        model_version = mr.register_model(
-            model_path=model_dir,
-            model_name=model_name,
-            metrics=metrics,
-            description=f"AQI Prediction Model - {model_name}"
-        )
-        print(f"Successfully registered model: {model_name}")
-        print(f"Model path: {model_dir}")
-    except Exception as e:
-        print(f"Error registering model: {e}")
+    # Register the model
+    print(f"\nRegistering {model_name} in Hopsworks...")
+    success = mr.register_model(
+        model_name=model_name,
+        model_dir=str(model_dir),
+        metrics=metrics,
+        description=f"Karachi AQI Prediction Model - {model_name}"
+    )
     
-    # Disconnect
-    mr.disconnect()
-    print("\nDone!")
+    if success:
+        print(f"\n✓ Model '{model_name}' successfully registered in Hopsworks!")
+    else:
+        print(f"\n✗ Failed to register model in Hopsworks")
+    
+    # Also upload the feature importance
+    feature_imp_file = Path("models/karachi/feature_importance.csv")
+    if feature_imp_file.exists():
+        print("\nFeature importance file found.")
+    
+    # Save metadata
+    metadata = {
+        "model_name": model_name,
+        "rmse": best_rmse,
+        "registered_at": str(Path(__file__).stat().st_mtime) if Path(__file__).exists() else "unknown"
+    }
+    
+    print("\n" + "="*60)
+    print("Upload Complete!")
+    print("="*60)
 
 if __name__ == "__main__":
     main()

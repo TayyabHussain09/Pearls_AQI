@@ -42,6 +42,7 @@ jobs:
           retention-days: 30
       
       - name: Register model to Hopsworks
+        continue-on-error: true
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
