@@ -11,7 +11,13 @@ import shutil
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.registry.hopsworks_pipeline import HopsworksModelRegistry
+# Try importing hopsworks, but handle if not available
+try:
+    from models.registry.hopsworks_pipeline import HopsworksModelRegistry
+except ImportError:
+    # Fallback if module import fails
+    HopsworksModelRegistry = None
+
 from config.settings import settings
 
 def main():
@@ -44,9 +50,10 @@ def main():
     print(f"Best RMSE: {best_rmse:.4f}")
     
     # Connect to Hopsworks
-    print("\n" + "="*60)
-    print("Registering Model in Hopsworks")
-    print("="*60)
+    if HopsworksModelRegistry is None:
+        print("WARNING: Hopsworks module not available. Skipping upload.")
+        print("Models are saved locally in models/karachi/")
+        return
     
     mr = HopsworksModelRegistry()
     
