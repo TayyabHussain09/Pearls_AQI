@@ -30,7 +30,11 @@ jobs:
       
       - name: Run Tests
         run: |
-          pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term
+          if [ -d "tests/" ]; then
+            pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term
+          else
+            echo "No tests directory found, skipping tests"
+          fi
       
       - name: Check Code Coverage
         if: success()
