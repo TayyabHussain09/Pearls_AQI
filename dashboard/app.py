@@ -3,6 +3,12 @@ Streamlit Dashboard for AQI Prediction System.
 Four tabs: Live Dashboard, EDA, Model X-Ray (SHAP), AQI Alerts.
 """
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
