@@ -1,4 +1,4 @@
-streamlit
+# Data Science & ML
 pandas
 numpy
 scikit-learn
@@ -10,5 +10,18 @@ joblib
 xgboost
 lightgbm
 shap
-python-dotenv
 statsmodels
+
+# Web & API
+streamlit
+aiohttp
+aiosignal
+frozenlist
+requests
+pydantic
+
+# Utilities
+python-dotenv
+
+# ML Platform
+hopsworks
